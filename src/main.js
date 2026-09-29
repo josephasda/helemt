@@ -7,9 +7,10 @@ import { PRESET_CATEGORIES, PRESETS, TEXT_PRESETS, FONTS } from './presets.js';
 import { History } from './history.js';
 import { renderProductionSheet, sheetSummary } from './printsheet.js';
 import { quote, money, PRICING } from './pricing.js';
+import { MODELS } from './models.js';
 
 const MAX_LAYERS = 100;
-const STORAGE_KEY = 'helmet-livery-studio:v2';
+const STORAGE_KEY = 'helmet-livery-studio:v3';
 const COLORS = [
   { name: 'Alpine White', hex: '#f4f5f7' },
   { name: 'Silverstone', hex: '#c9ced6' },
@@ -42,7 +43,7 @@ const vec = (a) => new THREE.Vector3(...a);
 // ---------------------------------------------------------------- setup
 const stage = createStage($('#scene'));
 const assets = new AssetStore(stage.renderer);
-let helmet = buildProceduralHelmet();
+let helmet = Object.assign(buildProceduralHelmet(), { modelId: 'gp-r', label: 'GP-R Track' });
 stage.scene.add(helmet.group);
 helmet.group.updateMatrixWorld(true);
 
@@ -305,7 +306,7 @@ function moveLayer(delta) {
 
 // ---------------------------------------------------------------- default design
 function emptyDesign() {
-  return { base: { color: '#f4f5f7', finish: 'gloss', visor: 'dark-smoke', trim: '#111111', showVisor: true }, layers: [] };
+  return { base: { color: '#f4f5f7', finish: 'gloss', visor: 'dark-smoke', trim: '#111111', showVisor: true, model: helmet?.modelId }, layers: [] };
 }
 
 function starterBase() {
@@ -316,6 +317,7 @@ async function starterDesign() {
   const design = { base: starterBase(), layers: [] };
   const put = async (fields, dir, extra = {}) => {
     const hit = placeFromDirection(dir);
+    if (!hit) return; // e.g. the direction lands on a vent or the visor of this model
     const layer = baseLayer({ ...fields, point: hit.point.toArray().map((v) => round(v)), normal: hit.normal.toArray().map((v) => round(v)) });
     await sizeForArtwork(layer, extra.longestCm);
     Object.assign(layer, extra.after || {});
@@ -781,8 +783,8 @@ function refreshPaint() {
   $$('#base-visor .list-item').forEach((c) => c.classList.toggle('on', c.dataset.value === b.visor));
   $$('#base-trim .trim-opt').forEach((c) => c.classList.toggle('on', c.dataset.value === b.trim));
   $('#base-show-visor').checked = b.showVisor !== false;
-  $('#model-default').classList.toggle('selected', helmet.kind === 'procedural');
-  $('#btn-model').classList.toggle('selected', helmet.kind !== 'procedural');
+  $$('#model-cards .option-card').forEach((c) => c.classList.toggle('selected', c.dataset.model === helmet.modelId));
+  $('#btn-model').classList.toggle('selected', helmet.modelId === 'upload');
 }
 
 function specLine() {
@@ -793,18 +795,14 @@ function specLine() {
 }
 
 function refreshHeader() {
-  $('#stage-model').textContent = helmet.kind === 'procedural' ? 'GP-R Track' : helmet.label || 'Custom helmet';
+  $('#stage-model').textContent = helmet.label || 'Custom helmet';
   $('#stage-spec').textContent = specLine();
   $('#price-total').textContent = money(quote(state.layers, state.base).total);
 }
 
 // ---------------------------------------------------------------- helmet model
 async function swapHelmet(next) {
-  stage.scene.remove(helmet.group);
-  helmet = next;
-  stage.scene.add(helmet.group);
-  helmet.group.updateMatrixWorld(true);
-  decals.setHelmet(helmet);
+  installHelmet(next);
   for (const l of state.layers) {
     const hit = decals.reproject(vec(l.point), vec(l.normal));
     if (hit) {
@@ -813,6 +811,70 @@ async function swapHelmet(next) {
     }
   }
   commit();
+}
+
+// ---------------------------------------------------------------- helmet models
+let availableModels = MODELS.filter((m) => m.procedural);
+
+// Only offer file-based models whose file is actually deployed.
+async function probeModels() {
+  const checks = await Promise.all(
+    MODELS.map(async (m) => {
+      if (m.procedural) return m;
+      try {
+        const res = await fetch(m.url, { method: 'HEAD' });
+        const type = res.headers.get('content-type') || '';
+        return res.ok && !type.includes('text/html') ? m : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  availableModels = checks.filter(Boolean);
+  renderModelCards();
+}
+
+async function buildModel(id) {
+  const m = availableModels.find((x) => x.id === id) || availableModels[0];
+  const h = m.procedural ? buildProceduralHelmet() : await loadHelmetModel(m.url, { rotationY: m.rotationY || 0 });
+  return Object.assign(h, { modelId: m.id, label: m.name });
+}
+
+function installHelmet(next) {
+  stage.scene.remove(helmet.group);
+  helmet = next;
+  stage.scene.add(helmet.group);
+  helmet.group.updateMatrixWorld(true);
+  decals.setHelmet(helmet);
+}
+
+async function chooseModel(id) {
+  if (helmet.modelId === id) return;
+  toast('Loading helmet…');
+  try {
+    await swapHelmet(await buildModel(id));
+    state.base.model = helmet.modelId;
+    commit();
+  } catch (err) {
+    console.error(err);
+    toast(`Could not load helmet: ${err.message}`, true);
+  }
+}
+
+function renderModelCards() {
+  $('#model-cards').replaceChildren(
+    ...availableModels.map((m) => {
+      const b = document.createElement('button');
+      b.className = 'option-card';
+      b.dataset.model = m.id;
+      b.innerHTML = `<svg viewBox="0 0 120 70" class="card-art"><path d="M14 46c0-19 14-34 38-34 22 0 38 11 44 21l14 3-6 5-9 1c0 6-2 10-6 13l-9 5H34c-12 0-20-6-20-14Z"/><path d="M58 31h33" stroke-width="5"/></svg><span class="card-text"><strong></strong><small></small></span><span class="tick"></span>`;
+      b.querySelector('strong').textContent = m.name;
+      b.querySelector('small').textContent = m.note;
+      b.addEventListener('click', () => chooseModel(m.id));
+      return b;
+    }),
+  );
+  refreshPaint();
 }
 
 $('#btn-model').addEventListener('click', () => $('#file-model').click());
@@ -826,6 +888,7 @@ async function loadModelFile(file) {
     toast('Loading model…');
     const next = await loadHelmetModel(file);
     next.label = file.name.replace(/\.[^.]+$/, '');
+    next.modelId = 'upload';
     $('#custom-model-name').textContent = file.name;
     await swapHelmet(next);
     toast(`Loaded ${file.name}`);
@@ -834,9 +897,6 @@ async function loadModelFile(file) {
     toast(`Could not load model: ${err.message}`, true);
   }
 }
-$('#model-default').addEventListener('click', () => {
-  if (helmet.kind !== 'procedural') swapHelmet(buildProceduralHelmet());
-});
 
 // ---------------------------------------------------------------- library
 let libraryMode = null; // 'add' | 'replace' | 'text'
@@ -1200,7 +1260,10 @@ function loadDesignData(data) {
 
 async function openDesignFile(file) {
   try {
-    loadDesignData(JSON.parse(await file.text()));
+    const data = JSON.parse(await file.text());
+    const model = data?.base?.model;
+    if (model && model !== helmet.modelId && availableModels.some((m) => m.id === model)) installHelmet(await buildModel(model));
+    loadDesignData(data);
     toast(`Opened ${file.name}`);
   } catch (err) {
     toast(`Could not open design: ${err.message}`, true);
@@ -1338,6 +1401,14 @@ async function boot() {
   } catch {
     saved = null;
   }
+  await probeModels();
+  const wanted = saved?.base?.model || availableModels[0].id;
+  try {
+    if (wanted !== helmet.modelId) installHelmet(await buildModel(wanted));
+  } catch (err) {
+    console.error(err);
+    toast('Could not load the helmet model — using the built-in shell', true);
+  }
   if (saved?.layers) {
     try {
       loadDesignData(saved);
@@ -1347,6 +1418,7 @@ async function boot() {
     }
   }
   state = await starterDesign();
+  state.base.model = helmet.modelId;
   apply();
   history.reset(snapshot());
   persist();

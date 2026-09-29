@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "optimize-model": "npx -y @gltf-transform/cli optimize --texture-compress webp --texture-size 1024 --simplify false --flatten false --join false --palette false --instance false"
   },
   "dependencies": {
     "three": "^0.186.1"

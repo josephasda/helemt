@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { carbonWeave, metalFlake, orangePeel, quiltNormal } from './textures.js';
 
 // World scale: 1 scene unit = 12.5 cm, so the default shell is ~31 cm long.
@@ -508,51 +509,82 @@ function paintVisorVertices(mesh, tint) {
 }
 
 // ---------------------------------------------------------------------------
-// Custom helmet models (.glb / .gltf)
+// Helmet models from .glb / .gltf files
 //
-// Mesh naming convention:
-//   *visor*, *glass*, *lens*, *shield*       -> visor material, not paintable
-//   *trim*, *rubber*, *gasket*, *liner*,
-//   *strap*, *vent*, *hardware*, *nopaint*    -> keep original material
-//   anything else                             -> painted shell, stickers allowed
+// Each mesh is classified by its own name, its parent node names and its
+// material name (exporters such as Sketchfab put the useful part name on the
+// parent node). Checked in this order:
+//   keep     *pad*, *padding*, *liner*, *interior*, *fabric*, *felt*, *rubber*,
+//            *gasket*, *trim*, *strap*, *vent*, *grill*, *screw*, *alumin*,
+//            *metal*, *chrome*, *plastic*, *hardware*, *nopaint*
+//            -> keeps its original material (plastic parts follow "Trim" colour)
+//   hidden   *logo*, *badge*, *brand*, *emblem* (third-party trademarks)
+//   visor    *visor*, *glass*, *lens*, *shield*  -> tinted visor material
+//   paint    everything else -> painted shell that takes stickers
 // ---------------------------------------------------------------------------
 
+const KEEP_RE = /pad|pading|liner|interior|fabric|felt|rubber|gasket|trim|strap|vent|grill|screw|alumin|metal|chrome|logo|plastic|hardware|nopaint/i;
 const VISOR_RE = /visor|glass|lens|shield/i;
-const KEEP_RE = /trim|rubber|gasket|liner|strap|vent|hardware|nopaint|pad/i;
+const TRIM_RE = /plastic|trim|hardware/i;
+// Manufacturer logos/badges are hidden: don't show third-party trademarks.
+const HIDE_RE = /logo|badge|brand|emblem/i;
 
-export async function loadHelmetModel(file) {
-  const url = URL.createObjectURL(file);
+function partName(o) {
+  const names = [];
+  for (let n = o; n; n = n.parent) if (n.name) names.push(n.name);
+  const mats = Array.isArray(o.material) ? o.material : [o.material];
+  return `${names.join(' ')} ${mats.map((m) => m?.name || '').join(' ')}`;
+}
+
+// source: a File (user upload) or a URL string.
+// options: { rotationY } in radians, to face models forward along +Z.
+export async function loadHelmetModel(source, { rotationY = 0 } = {}) {
+  const isFile = typeof source !== 'string';
+  const url = isFile ? URL.createObjectURL(source) : source;
   try {
-    const gltf = await new GLTFLoader().loadAsync(url);
+    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
     const root = gltf.scene;
+    root.rotation.y += rotationY;
+    root.updateMatrixWorld(true);
 
     const box = new THREE.Box3().setFromObject(root);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    const scale = 2.5 / Math.max(size.x, size.y, size.z);
+    const scale = 2.35 / Math.max(size.x, size.y, size.z);
     root.position.sub(center).multiplyScalar(scale);
     root.scale.multiplyScalar(scale);
+    // Sit on the studio floor like the built-in helmet.
+    root.position.y += -1.12 - (box.min.y - center.y) * scale;
 
     const group = new THREE.Group();
     group.name = 'helmet';
     group.add(root);
     group.updateMatrixWorld(true);
 
-    const paint = new THREE.MeshPhysicalMaterial({ color: '#e10600' });
+    const paint = new THREE.MeshPhysicalMaterial({ color: '#e10600', side: THREE.FrontSide });
     enableCarbon(paint);
     applyFinish(paint, 'gloss');
-    const visorMat = new THREE.MeshPhysicalMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, clearcoat: 1 });
+    const visorMat = new THREE.MeshPhysicalMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.4 });
     const paintables = [];
     const visors = [];
+    const trimMaterials = new Set();
     root.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = o.receiveShadow = true;
-      const name = `${o.name} ${o.material?.name || ''}`;
-      if (VISOR_RE.test(name)) {
+      const name = partName(o);
+      if (HIDE_RE.test(name)) {
+        o.visible = false;
+        return;
+      }
+      if (KEEP_RE.test(name)) {
+        // Parts attached to the visor (logos, seals) hide with it.
+        if (VISOR_RE.test(name) && !/pad|pading/i.test(name)) visors.push(o);
+        for (const m of [o.material].flat()) if (m && TRIM_RE.test(`${name} ${m.name}`) && m.color) trimMaterials.add(m);
+      } else if (VISOR_RE.test(name)) {
         o.material = visorMat;
         o.renderOrder = 1000;
         visors.push(o);
-      } else if (!KEEP_RE.test(name)) {
+      } else {
         if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
         o.material = paint;
         o.userData.paintable = true;
@@ -560,9 +592,9 @@ export async function loadHelmetModel(file) {
       }
     });
     if (!paintables.length) throw new Error('No paintable meshes found in this model.');
-    return { group, paintables, paintMaterials: [paint], trimMaterials: [], visorMaterials: [visorMat], visors, visorMeshes: [], kind: 'custom' };
+    return { group, paintables, paintMaterials: [paint], trimMaterials: [...trimMaterials], visorMaterials: [visorMat], visors, visorMeshes: [], kind: 'custom' };
   } finally {
-    URL.revokeObjectURL(url);
+    if (isFile) URL.revokeObjectURL(url);
   }
 }
 

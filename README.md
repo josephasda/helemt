@@ -71,13 +71,38 @@ All pricing lives in **`src/pricing.js`**: design fee, cost per piece, vinyl cos
 
 Set `orderEmail` there too. **Request a quote** then opens an email with the full spec and price, and downloads the design file and print sheet for the customer to attach. There's no backend yet. For real checkout, connect this step to Shopify, Stripe or a form service.
 
-## Custom helmet models
+## Helmet models
 
-Load a `.glb` / `.gltf` file in step 1. Mesh names decide how each part is treated:
+Step 1 offers the helmets listed in **`src/models.js`**:
 
-- Names containing `visor`, `glass` or `lens` get the visor material.
-- Names containing `trim`, `rubber`, `vent`, `liner` or `strap` keep their own material.
-- Everything else is paintable and takes stickers.
+- **Race Pro** is loaded from `public/models/helmet.glb`. It is the default helmet when that file is present.
+- **GP-R Track** is the built-in procedural shell. It is always available, and it is the fallback when a model file is missing.
+- **Your own model** lets a visitor upload a `.glb` for their session only.
+
+### Adding / replacing the model file
+
+1. Optimise it first: 4K textures make files far too big for phones.
+   ```bash
+   npm run optimize-model -- original.glb public/models/helmet.glb
+   ```
+   This converts textures to 1024px WebP and compresses the geometry. The part names are kept, because the app uses them.
+2. If the helmet faces backwards, set `rotationY` for it in `src/models.js`.
+3. To offer several helmets, add more entries to `MODELS`.
+
+### Licensing: model files are not committed
+
+`public/models/*.glb` is in `.gitignore` on purpose.
+- **The repo is public.** Committing a purchased model would redistribute it, which the Sketchfab Standard licence doesn't allow.
+- **Deploying:** copy the file into `public/models/` in your hosting build instead, or make the repo private and commit it.
+- **Licence types:** only use models whose licence allows **commercial** use. CC-BY-NC ("non-commercial") models are not allowed on a shop site. CC-BY models need the author credited on the site.
+
+### How parts are detected
+
+Parts are recognised from their mesh, parent-node and material names:
+- `pad`, `interior`, `fabric`, `vent`, `grill`, `screw`, `alumin`, `plastic`, `rubber`, `trim` and similar keep their own material. Plastic parts follow the **Trim** colour.
+- `visor`, `glass`, `lens` or `shield` get the tinted visor material.
+- `logo`, `badge`, `brand` or `emblem` are **hidden**, so no third-party trademarks appear.
+- Everything else is painted shell that takes stickers.
 
 ## Code map
 
@@ -91,6 +116,7 @@ Load a `.glb` / `.gltf` file in step 1. Mesh names decide how each part is treat
 | `src/assets.js` | Preset / upload / text textures, background removal, print art |
 | `src/presets.js` | Preset vinyl library (SVG), text styles, fonts |
 | `src/pricing.js` | Sticker kit pricing (edit me) |
+| `src/models.js` | Helmet models offered in step 1 |
 | `src/printsheet.js` | Production print sheet renderer |
 | `src/history.js` | Undo/redo |
 

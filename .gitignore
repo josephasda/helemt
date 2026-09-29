@@ -1,3 +1,7 @@
 node_modules
 dist
 .DS_Store
+
+# Licensed 3D models: never commit these to a public repo
+public/models/*.glb
+public/models/*.gltf
