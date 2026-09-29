@@ -6,14 +6,30 @@ import { DecalLayers, mirrorPlacement } from './decals.js';
 import { PRESET_CATEGORIES, PRESETS, TEXT_PRESETS, FONTS } from './presets.js';
 import { History } from './history.js';
 import { renderProductionSheet, sheetSummary } from './printsheet.js';
+import { quote, money, PRICING } from './pricing.js';
 
 const MAX_LAYERS = 100;
-const STORAGE_KEY = 'helmet-livery-studio:v1';
+const STORAGE_KEY = 'helmet-livery-studio:v2';
 const COLORS = [
-  '#ffffff', '#c9ced6', '#6b7280', '#111111', '#e10600', '#ff5a1f', '#ffb300', '#ffe600',
-  '#9be22d', '#00a651', '#00c2b8', '#0091ff', '#1b3a8a', '#7b3fe4', '#ff2d95', '#c9a227',
+  { name: 'Alpine White', hex: '#f4f5f7' },
+  { name: 'Silverstone', hex: '#c9ced6' },
+  { name: 'Gunmetal', hex: '#5f656e' },
+  { name: 'Jet Black', hex: '#111111' },
+  { name: 'Race Red', hex: '#e10600' },
+  { name: 'Burnt Orange', hex: '#ff5a1f' },
+  { name: 'Solar Yellow', hex: '#ffd100' },
+  { name: 'Acid Green', hex: '#9be22d' },
+  { name: 'British Racing Green', hex: '#0b4d2c' },
+  { name: 'Estoril Blue', hex: '#0091ff' },
+  { name: 'Midnight Navy', hex: '#16275a' },
+  { name: 'Violet', hex: '#7b3fe4' },
+  { name: 'Hot Pink', hex: '#ff2d95' },
+  { name: 'Petrol Teal', hex: '#00a3a3' },
+  { name: 'Champagne Gold', hex: '#c9a227' },
+  { name: 'Bronze', hex: '#8c5a2b' },
 ];
-const TRIMS = { Black: '#111111', Graphite: '#3a3f47', White: '#e6e6e6', Red: '#a0000e' };
+const colorName = (hex) => COLORS.find((c) => c.hex.toLowerCase() === hex.toLowerCase())?.name || 'Custom';
+const TRIMS = { 'Gloss Black': '#111111', Graphite: '#3a3f47', White: '#e6e6e6', Red: '#a0000e' };
 const MIN_CM = 0.5;
 const MAX_CM = 45;
 
@@ -76,6 +92,8 @@ function renderAll() {
   renderLayerList();
   refreshProps();
   refreshPaint();
+  refreshHeader();
+  if (step === 'summary') renderSummary();
   $('#btn-undo').disabled = !history.canUndo;
   $('#btn-redo').disabled = !history.canRedo;
 }
@@ -95,7 +113,7 @@ function persist() {
 function select(id) {
   selectedId = id;
   decals.sync(state.layers, state.base, selectedId);
-  if (id) showTab('sticker');
+  if (id) goToStep('graphics');
   renderLayerList();
   refreshProps();
 }
@@ -207,7 +225,7 @@ async function addLayer(fields, { longestCm, place = true } = {}) {
   state.layers.push(layer);
   selectedId = layer.id;
   commit();
-  showTab('sticker');
+  goToStep('graphics');
   return layer;
 }
 
@@ -290,8 +308,12 @@ function emptyDesign() {
   return { base: { color: '#f4f5f7', finish: 'gloss', visor: 'dark-smoke', trim: '#111111', showVisor: true }, layers: [] };
 }
 
+function starterBase() {
+  return { color: '#f4f5f7', finish: 'carbon', visor: 'iridium-red', trim: '#111111', showVisor: true };
+}
+
 async function starterDesign() {
-  const design = emptyDesign();
+  const design = { base: starterBase(), layers: [] };
   const put = async (fields, dir, extra = {}) => {
     const hit = placeFromDirection(dir);
     const layer = baseLayer({ ...fields, point: hit.point.toArray().map((v) => round(v)), normal: hit.normal.toArray().map((v) => round(v)) });
@@ -299,12 +321,12 @@ async function starterDesign() {
     Object.assign(layer, extra.after || {});
     design.layers.push(layer);
   };
-  await put({ kind: 'preset', assetId: 'gt-stripe', name: 'Centre Stripe', color: '#e10600', rotation: 90, depth: 1.2 }, [0, 1, 0.05], { longestCm: 36 });
-  await put({ kind: 'preset', assetId: 'swoosh', name: 'Side Swoosh', color: '#e10600', mirror: true, rotation: -8 }, [1, -0.35, 0.15], { longestCm: 24 });
-  await put({ kind: 'preset', assetId: 'roundel', name: 'Number Roundel', color: '#111111', mirror: true, mirrorFlip: false }, [1, 0.25, -0.55], { longestCm: 9 });
-  await put({ kind: 'text', name: '46', autoName: true, text: { ...TEXT_PRESETS[0].text, strokeWidth: 0 }, mirror: true, mirrorFlip: false }, [1, 0.25, -0.55], { longestCm: 5.2 });
-  await put({ kind: 'preset', assetId: 'checker-fade', name: 'Checker Fade', color: '#111111', rotation: 0 }, [0, 0.05, -1], { longestCm: 16 });
-  await put({ kind: 'preset', assetId: 'bolt', name: 'Chin Bolt', color: '#e10600' }, [0, -0.75, 1], { longestCm: 6 });
+  await put({ kind: 'preset', assetId: 'gt-stripe', name: 'Centre Stripe', color: '#e10600', rotation: 90, depth: 1.3 }, [0, 1, 0.12], { longestCm: 38 });
+  await put({ kind: 'preset', assetId: 'swoosh', name: 'Side Swoosh', color: '#f4f5f7', mirror: true, rotation: -6 }, [1, -0.4, 0.1], { longestCm: 24 });
+  await put({ kind: 'preset', assetId: 'roundel', name: 'Number Roundel', color: '#f4f5f7', mirror: true, mirrorFlip: false }, [1, 0.12, -0.7], { longestCm: 9 });
+  await put({ kind: 'text', name: '46', autoName: true, text: { ...TEXT_PRESETS[0].text, fill: '#111111', strokeWidth: 0 }, mirror: true, mirrorFlip: false }, [1, 0.12, -0.7], { longestCm: 5.2 });
+  await put({ kind: 'preset', assetId: 'checker-fade', name: 'Checker Fade', color: '#f4f5f7', rotation: 0 }, [0, -0.35, -1], { longestCm: 15 });
+  await put({ kind: 'preset', assetId: 'bolt', name: 'Chin Bolt', color: '#e10600' }, [0, -0.9, 1], { longestCm: 5 });
   return design;
 }
 
@@ -398,21 +420,50 @@ function renderLayerList() {
 }
 
 // ---------------------------------------------------------------- properties UI
-function showTab(name) {
-  $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-  $$('.tab-body').forEach((b) => (b.hidden = b.dataset.body !== name));
+// ---------------------------------------------------------------- configurator steps
+const STEPS = ['model', 'paint', 'visor', 'graphics', 'summary'];
+const STEP_LABELS = { model: 'Helmet', paint: 'Paint', visor: 'Visor', graphics: 'Graphics', summary: 'Summary' };
+let step = 'model';
+
+function goToStep(name) {
+  if (!STEPS.includes(name)) return;
+  const changed = step !== name;
+  step = name;
+  const i = STEPS.indexOf(name);
+  $$('#steps button').forEach((b) => {
+    const j = STEPS.indexOf(b.dataset.step);
+    b.classList.toggle('active', j === i);
+    b.classList.toggle('done', j < i);
+  });
+  $$('.step-body').forEach((b) => (b.hidden = b.dataset.body !== name));
+  $('#btn-prev').style.visibility = i === 0 ? 'hidden' : 'visible';
+  $('#btn-next').textContent = i === STEPS.length - 1 ? 'Request a quote' : `Next: ${STEP_LABELS[STEPS[i + 1]]}`;
+  if (changed) $('.config-scroll').scrollTop = 0;
+  if (name === 'summary') {
+    if (selectedId) select(null);
+    renderSummary();
+  }
+  // Frame the helmet the way each step is best judged.
+  if (changed && name === 'visor') stage.flyTo('front');
 }
-$$('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+$$('#steps button').forEach((b) => b.addEventListener('click', () => goToStep(b.dataset.step)));
+$('#btn-prev').addEventListener('click', () => goToStep(STEPS[STEPS.indexOf(step) - 1]));
+$('#btn-next').addEventListener('click', () => {
+  const i = STEPS.indexOf(step);
+  if (i === STEPS.length - 1) return openQuote();
+  goToStep(STEPS[i + 1]);
+});
 
 function buildSwatches(el, onPick) {
   el.replaceChildren(
     ...COLORS.map((c) => {
       const b = document.createElement('button');
       b.className = 'swatch';
-      b.style.background = c;
-      b.dataset.color = c;
-      b.title = c;
-      b.addEventListener('click', () => onPick(c));
+      b.style.background = c.hex;
+      b.dataset.color = c.hex;
+      b.title = c.name;
+      b.setAttribute('aria-label', c.name);
+      b.addEventListener('click', () => onPick(c.hex));
       return b;
     }),
   );
@@ -439,7 +490,7 @@ $('#prop-font').replaceChildren(
 );
 
 $('#prop-finish').replaceChildren(
-  ...[['inherit', 'Same as shell'], ...Object.entries(FINISHES).map(([k, v]) => [k, v.label])].map(([k, label]) => {
+  ...[['inherit', 'Same as shell'], ...Object.entries(FINISHES).filter(([, v]) => !v.shellOnly).map(([k, v]) => [k, v.label])].map(([k, label]) => {
     const b = document.createElement('button');
     b.className = 'chip';
     b.dataset.value = k;
@@ -653,50 +704,60 @@ function bindBase(id, setter) {
     setter(el.value);
     apply();
     $('#base-color-hex').textContent = el.value.toUpperCase();
+    $('#base-color-name').textContent = colorName(el.value);
   });
   el.addEventListener('change', commit);
 }
 
+function listItem(value, html, onClick) {
+  const b = document.createElement('button');
+  b.className = 'list-item';
+  b.dataset.value = value;
+  b.innerHTML = `${html}<span class="tick"></span>`;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+const finishBall = {
+  gloss: 'radial-gradient(circle at 35% 30%, #fff 0 8%, #8a8f97 30%, #1b1d21 80%)',
+  satin: 'radial-gradient(circle at 35% 30%, #d9dbe0 0 12%, #6d727a 45%, #2b2e33 90%)',
+  matte: '#5d6168',
+  metallic: 'radial-gradient(circle at 35% 30%, #fff 0 6%, #b9bec6 22%, #4a4f57 60%, #1a1c20 90%)',
+  pearl: 'radial-gradient(circle at 35% 30%, #fff 0 8%, #dfe3ff 25%, #ffd9ef 50%, #b8c0cf 85%)',
+  chrome: 'radial-gradient(circle at 35% 30%, #fff 0 10%, #9aa1ab 30%, #f2f4f7 55%, #3d424a 85%)',
+  carbon: 'repeating-linear-gradient(45deg, #1a1a1c 0 3px, #3a3b3f 3px 6px)',
+};
 $('#base-finish').replaceChildren(
-  ...Object.entries(FINISHES).map(([k, v]) => {
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.dataset.value = k;
-    b.textContent = v.label;
-    b.addEventListener('click', () => {
+  ...Object.entries(FINISHES).map(([k, v]) =>
+    listItem(k, `<i class="li-ball" style="background:${finishBall[k]}"></i><span class="li-text"><strong>${v.label}</strong><small>${v.note}</small></span>`, () => {
       state.base.finish = k;
       commit();
-    });
-    return b;
-  }),
+    }),
+  ),
 );
 
 $('#base-visor').replaceChildren(
   ...Object.entries(VISORS).map(([k, v]) => {
-    const b = document.createElement('button');
-    b.className = 'visor-opt';
-    b.dataset.value = k;
     const bg = v.iridescence
       ? 'linear-gradient(90deg,#ff5f6d,#ffc371,#6dd5ed,#8e7dff)'
       : v.metalness > 0.5
         ? `linear-gradient(160deg, #fff 0%, ${v.color} 45%, #111 100%)`
-        : `color-mix(in srgb, ${v.color} ${Math.round(v.opacity * 100)}%, #3a4150)`;
-    b.innerHTML = `<i style="background:${bg}"></i>${v.label}`;
-    b.addEventListener('click', () => {
+        : `color-mix(in srgb, ${v.color} ${Math.round(v.opacity * 100)}%, #dfe3e8)`;
+    const note = v.metalness > 0.5 ? 'Mirrored coating' : v.opacity < 0.2 ? 'Maximum light, night riding' : 'Tinted, daytime use';
+    return listItem(k, `<i class="li-swatch" style="background:${bg}"></i><span class="li-text"><strong>${v.label}</strong><small>${note}</small></span>`, () => {
       state.base.visor = k;
       state.base.showVisor = true;
       commit();
     });
-    return b;
   }),
 );
 
 $('#base-trim').replaceChildren(
   ...Object.entries(TRIMS).map(([label, c]) => {
     const b = document.createElement('button');
-    b.className = 'chip swatchy';
+    b.className = 'trim-opt';
     b.dataset.value = c;
-    b.innerHTML = `<i style="background:${c}"></i>${label}`;
+    b.innerHTML = `<span class="swatch" style="background:${c}"></span>${label}`;
     b.addEventListener('click', () => {
       state.base.trim = c;
       commit();
@@ -705,8 +766,8 @@ $('#base-trim').replaceChildren(
   }),
 );
 
-$('#base-show-visor').addEventListener('click', () => {
-  state.base.showVisor = state.base.showVisor === false;
+$('#base-show-visor').addEventListener('change', (e) => {
+  state.base.showVisor = e.target.checked;
   commit();
 });
 
@@ -714,12 +775,27 @@ function refreshPaint() {
   const b = state.base;
   $('#base-color').value = b.color;
   $('#base-color-hex').textContent = b.color.toUpperCase();
+  $('#base-color-name').textContent = colorName(b.color);
   markSwatch($('#base-swatches'), b.color);
-  $$('#base-finish .chip').forEach((c) => c.classList.toggle('on', c.dataset.value === b.finish));
-  $$('#base-visor .visor-opt').forEach((c) => c.classList.toggle('on', c.dataset.value === b.visor));
-  $$('#base-trim .chip').forEach((c) => c.classList.toggle('on', c.dataset.value === b.trim));
-  $('#base-show-visor').classList.toggle('on', b.showVisor !== false);
-  $('#base-show-visor').textContent = b.showVisor !== false ? 'Visor on (click to hide)' : 'Visor hidden (click to show)';
+  $$('#base-finish .list-item').forEach((c) => c.classList.toggle('on', c.dataset.value === b.finish));
+  $$('#base-visor .list-item').forEach((c) => c.classList.toggle('on', c.dataset.value === b.visor));
+  $$('#base-trim .trim-opt').forEach((c) => c.classList.toggle('on', c.dataset.value === b.trim));
+  $('#base-show-visor').checked = b.showVisor !== false;
+  $('#model-default').classList.toggle('selected', helmet.kind === 'procedural');
+  $('#btn-model').classList.toggle('selected', helmet.kind !== 'procedural');
+}
+
+function specLine() {
+  const b = state.base;
+  const shell = b.finish === 'carbon' ? `Carbon${colorName(b.color) === 'Alpine White' ? '' : ` · ${colorName(b.color)} tint`}` : `${colorName(b.color)} ${FINISHES[b.finish].label}`;
+  const n = state.layers.filter((l) => l.visible).length;
+  return `${shell} · ${VISORS[b.visor].label} visor · ${n} graphic${n === 1 ? '' : 's'}`;
+}
+
+function refreshHeader() {
+  $('#stage-model').textContent = helmet.kind === 'procedural' ? 'GP-R Track' : helmet.label || 'Custom helmet';
+  $('#stage-spec').textContent = specLine();
+  $('#price-total').textContent = money(quote(state.layers, state.base).total);
 }
 
 // ---------------------------------------------------------------- helmet model
@@ -748,14 +824,19 @@ $('#file-model').addEventListener('change', async (e) => {
 async function loadModelFile(file) {
   try {
     toast('Loading model…');
-    await swapHelmet(await loadHelmetModel(file));
+    const next = await loadHelmetModel(file);
+    next.label = file.name.replace(/\.[^.]+$/, '');
+    $('#custom-model-name').textContent = file.name;
+    await swapHelmet(next);
     toast(`Loaded ${file.name}`);
   } catch (err) {
     console.error(err);
     toast(`Could not load model: ${err.message}`, true);
   }
 }
-$('#btn-model-reset').addEventListener('click', () => swapHelmet(buildProceduralHelmet()));
+$('#model-default').addEventListener('click', () => {
+  if (helmet.kind !== 'procedural') swapHelmet(buildProceduralHelmet());
+});
 
 // ---------------------------------------------------------------- library
 let libraryMode = null; // 'add' | 'replace' | 'text'
@@ -833,6 +914,7 @@ function renderLibrary() {
       const img = new Image();
       img.src = u.src;
       img.alt = '';
+      img.className = 'photo';
       tile(u.name, img, () => choose({ kind: 'upload', assetId: u.id, name: u.name }, () => addLayer({ kind: 'upload', assetId: u.id, name: u.name })));
     }
   }
@@ -884,6 +966,7 @@ $$('#views [data-view]').forEach((b) =>
     stage.controls.autoRotate = false;
     $('#btn-spin').classList.remove('on');
     stage.flyTo(b.dataset.view);
+    $$('#views [data-view]').forEach((x) => x.classList.toggle('on', x === b));
   }),
 );
 $('#btn-spin').addEventListener('click', (e) => {
@@ -1139,34 +1222,100 @@ $('#btn-new').addEventListener('click', () => {
   commit();
 });
 
-$('#btn-export').addEventListener('click', () => {
-  const s = sheetSummary(state.layers);
-  $('#sheet-summary').textContent = `${s.count} sticker${s.count === 1 ? '' : 's'} · ${(s.areaCm2 / 100).toFixed(1)} dm² of vinyl`;
-  $('#export').showModal();
+let studioMode = 'light';
+const studioBg = () => (studioMode === 'dark' ? '#16181b' : '#eceef1');
+$('#btn-studio').addEventListener('click', (e) => {
+  studioMode = studioMode === 'dark' ? 'light' : 'dark';
+  document.body.classList.toggle('studio-dark', studioMode === 'dark');
+  stage.setStudio(studioMode);
+  e.currentTarget.classList.toggle('on', studioMode === 'dark');
 });
+
+let summaryTimer = 0;
+function renderSummary() {
+  const b = state.base;
+  const rows = [
+    ['Helmet', $('#stage-model').textContent],
+    ['Shell colour', `${colorName(b.color)} (${b.color.toUpperCase()})`],
+    ['Finish', FINISHES[b.finish].label],
+    ['Visor', VISORS[b.visor].label],
+    ['Trim', Object.entries(TRIMS).find(([, c]) => c === b.trim)?.[0] || b.trim],
+    ['Graphics', `${state.layers.filter((l) => l.visible).length} layers`],
+  ];
+  const s = sheetSummary(state.layers);
+  rows.push(['Stickers to print', `${s.count} pieces · ${(s.areaCm2 / 100).toFixed(1)} dm²`]);
+  $('#summary-list').replaceChildren(...rows.flatMap(([k, v]) => [Object.assign(document.createElement('dt'), { textContent: k }), Object.assign(document.createElement('dd'), { textContent: v })]));
+  const q = quote(state.layers, state.base);
+  const lines = q.lines.map((l) => [l.label, money(l.amount)]);
+  if (!lines.length) lines.push(['Add graphics to see a price', '—']);
+  const dl = $('#price-lines');
+  dl.replaceChildren(...lines.flatMap(([k, v]) => [Object.assign(document.createElement('dt'), { textContent: k }), Object.assign(document.createElement('dd'), { textContent: v })]));
+  dl.append(Object.assign(document.createElement('dt'), { textContent: 'Estimated total', className: 'total' }), Object.assign(document.createElement('dd'), { textContent: money(q.total), className: 'total' }));
+  $('#sheet-summary').textContent = `${s.count} stickers at real size, with cut lines`;
+  // Render the hero shot once the view has settled.
+  clearTimeout(summaryTimer);
+  summaryTimer = setTimeout(() => {
+    $('#summary-shot').src = stage.screenshot({ width: 1200, height: 900, background: studioBg(), hide: [decals.frameMesh] });
+  }, 150);
+}
 
 $('#btn-shot').addEventListener('click', () => {
   const transparent = $('#shot-transparent').checked;
-  const url = stage.screenshot({ transparent, hide: transparent ? [decals.frameMesh, stage.shadow] : [decals.frameMesh] });
+  const url = stage.screenshot({ background: transparent ? null : studioBg(), hide: transparent ? [decals.frameMesh, stage.shadow] : [decals.frameMesh] });
   download(url, 'helmet-render.png');
 });
+
+// Quote request: no backend, so compose an email and hand over the files.
+function openQuote() {
+  $('#quote').showModal();
+}
+$('#btn-quote').addEventListener('click', openQuote);
+$('#quote-form').addEventListener('submit', async (e) => {
+  const f = new FormData(e.target);
+  const q = quote(state.layers, state.base);
+  const body = [
+    `Name: ${f.get('name')}`,
+    `Email: ${f.get('email')}`,
+    `Helmet: ${f.get('helmet') || '-'}`,
+    '',
+    `Configuration: ${$('#stage-model').textContent} — ${specLine()}`,
+    ...q.lines.map((l) => `${l.label}: ${money(l.amount)}`),
+    `Estimated total: ${money(q.total)}`,
+    '',
+    `Notes: ${f.get('notes') || '-'}`,
+    '',
+    '(Design file and print sheet attached)',
+  ].join('\n');
+  saveDesign();
+  await downloadSheet();
+  if (PRICING.orderEmail) {
+    location.href = `mailto:${PRICING.orderEmail}?subject=${encodeURIComponent('Helmet sticker quote request')}&body=${encodeURIComponent(body)}`;
+    toast('Email opened — attach the downloaded files');
+  } else {
+    toast('Files downloaded. Set orderEmail in src/pricing.js to email requests.');
+  }
+});
+
+async function downloadSheet() {
+  const preview = stage.screenshot({ width: 900, height: 900, hide: [decals.frameMesh, stage.shadow] });
+  const blob = await renderProductionSheet({ layers: state.layers, base: state.base, assets, dpi: +$('#sheet-dpi').value, preview });
+  const url = URL.createObjectURL(blob);
+  download(url, 'helmet-print-sheet.png');
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
 
 $('#btn-sheet').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
   btn.textContent = 'Rendering…';
   try {
-    const preview = stage.screenshot({ width: 900, height: 900, hide: [decals.frameMesh, stage.shadow] });
-    const blob = await renderProductionSheet({ layers: state.layers, base: state.base, assets, dpi: +$('#sheet-dpi').value, preview });
-    const url = URL.createObjectURL(blob);
-    download(url, 'helmet-print-sheet.png');
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    await downloadSheet();
   } catch (err) {
     console.error(err);
     toast(`Could not render sheet: ${err.message}`, true);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Download print sheet';
+    btn.textContent = 'PNG';
   }
 });
 
@@ -1205,6 +1354,7 @@ async function boot() {
 }
 
 state = emptyDesign();
+goToStep('model');
 renderAll();
 boot();
 

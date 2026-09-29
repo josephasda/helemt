@@ -101,6 +101,22 @@ class TriangleCache {
   }
 }
 
+function mergeProxies(meshes) {
+  const total = meshes.reduce((n, m) => n + m.geometry.attributes.position.count, 0);
+  const pos = new Float32Array(total * 3);
+  const nrm = new Float32Array(total * 3);
+  let o = 0;
+  for (const m of meshes) {
+    pos.set(m.geometry.attributes.position.array, o);
+    nrm.set(m.geometry.attributes.normal.array, o);
+    o += m.geometry.attributes.position.array.length;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  return new THREE.Mesh(g);
+}
+
 function frameTexture(aspect) {
   const w = aspect >= 1 ? 512 : Math.max(32, Math.round(512 * aspect));
   const h = aspect >= 1 ? Math.max(32, Math.round(512 / aspect)) : 512;
@@ -170,16 +186,6 @@ export class DecalLayers {
     return { point: hit.point.clone(), normal: n, object: hit.object };
   }
 
-  // Find the paintable mesh under a stored placement.
-  targetFor(point, normal) {
-    const origin = point.clone().addScaledVector(normal, 0.6);
-    this.raycaster.set(origin, normal.clone().negate());
-    this.raycaster.far = 1.5;
-    const hits = this.raycaster.intersectObjects(this.helmet.paintables, false);
-    this.raycaster.far = Infinity;
-    return hits[0]?.object || this.helmet.paintables[0];
-  }
-
   // Snap a placement back onto the surface (used after model swaps and when
   // centring a sticker on the helmet's middle line).
   reproject(point, normal) {
@@ -198,9 +204,12 @@ export class DecalLayers {
     const orientation = new THREE.Euler().setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
     const depth = Math.max(layer.width, layer.height) * (layer.depth ?? 0.8);
     const size = new THREE.Vector3(layer.width, layer.height, depth);
-    const target = this.targetFor(placement.point, placement.normal);
-    const proxy = this.cacheFor(target).proxy(placement.point, normal, size.length() / 2);
+    // Gather nearby triangles from every paintable part (shell, spoiler…)
+    // so one sticker can flow across them.
+    const parts = this.helmet.paintables.map((m) => this.cacheFor(m).proxy(placement.point, normal, size.length() / 2));
+    const proxy = parts.length === 1 ? parts[0] : mergeProxies(parts);
     const geo = new DecalGeometry(proxy, placement.point, orientation, size);
+    for (const p of parts) p.geometry.dispose();
     proxy.geometry.dispose();
     const flipX = placement.flipX;
     if (flipX || layer.flipY) {

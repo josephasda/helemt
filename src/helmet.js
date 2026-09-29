@@ -1,41 +1,88 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { carbonWeave, metalFlake, orangePeel, quiltNormal } from './textures.js';
 
-// World scale: 1 scene unit = 12.5 cm, so the default shell is ~30 cm long.
+// World scale: 1 scene unit = 12.5 cm, so the default shell is ~31 cm long.
 export const UNIT_CM = 12.5;
 
 export const FINISHES = {
-  gloss: { label: 'Gloss', roughness: 0.2, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.03, iridescence: 0 },
-  satin: { label: 'Satin', roughness: 0.45, metalness: 0.05, clearcoat: 0.3, clearcoatRoughness: 0.4, iridescence: 0 },
-  matte: { label: 'Matte', roughness: 0.85, metalness: 0.0, clearcoat: 0, clearcoatRoughness: 0, iridescence: 0 },
-  metallic: { label: 'Metallic', roughness: 0.32, metalness: 0.75, clearcoat: 1, clearcoatRoughness: 0.05, iridescence: 0 },
-  pearl: { label: 'Pearl', roughness: 0.25, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.05, iridescence: 0.7 },
-  chrome: { label: 'Chrome', roughness: 0.06, metalness: 1.0, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0 },
+  gloss: { label: 'Gloss', note: 'Deep wet-look clear coat', roughness: 0.16, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.02 },
+  satin: { label: 'Satin', note: 'Soft low-sheen lacquer', roughness: 0.42, metalness: 0.05, clearcoat: 0.35, clearcoatRoughness: 0.35 },
+  matte: { label: 'Matte', note: 'Flat, no reflections', roughness: 0.78, metalness: 0.0, clearcoat: 0, clearcoatRoughness: 0 },
+  metallic: { label: 'Metallic', note: 'Metal flake under clear', roughness: 0.34, metalness: 0.72, clearcoat: 1, clearcoatRoughness: 0.03, flake: 0.35 },
+  pearl: { label: 'Pearl', note: 'Colour-shifting pearlescent', roughness: 0.28, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.03, flake: 0.2, iridescence: 0.75 },
+  chrome: { label: 'Chrome', note: 'Mirror-polished', roughness: 0.04, metalness: 1.0, clearcoat: 1, clearcoatRoughness: 0.02 },
+  carbon: { label: 'Carbon', note: 'Exposed 2×2 twill carbon fibre', roughness: 0.35, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.02, carbon: true, shellOnly: true },
 };
 
 export const VISORS = {
-  clear: { label: 'Clear', color: '#ffffff', opacity: 0.12, metalness: 0, roughness: 0.02 },
-  'light-smoke': { label: 'Light Smoke', color: '#2a2e33', opacity: 0.45, metalness: 0.1, roughness: 0.02 },
-  'dark-smoke': { label: 'Dark Smoke', color: '#0b0c0e', opacity: 0.82, metalness: 0.2, roughness: 0.02 },
-  'iridium-blue': { label: 'Iridium Blue', color: '#2f6bff', opacity: 0.85, metalness: 0.9, roughness: 0.05 },
-  'iridium-gold': { label: 'Iridium Gold', color: '#e0a526', opacity: 0.85, metalness: 0.9, roughness: 0.05 },
-  'iridium-red': { label: 'Iridium Red', color: '#ff3b3b', opacity: 0.85, metalness: 0.9, roughness: 0.05 },
+  clear: { label: 'Clear', color: '#ffffff', opacity: 0.1, metalness: 0, roughness: 0.02 },
+  'light-smoke': { label: 'Light Smoke', color: '#2a2e33', opacity: 0.42, metalness: 0.1, roughness: 0.02 },
+  'dark-smoke': { label: 'Dark Smoke', color: '#07080a', opacity: 0.8, metalness: 0.2, roughness: 0.02 },
+  'iridium-blue': { label: 'Iridium Blue', color: '#2f6bff', opacity: 0.86, metalness: 0.9, roughness: 0.04 },
+  'iridium-gold': { label: 'Iridium Gold', color: '#e0a526', opacity: 0.86, metalness: 0.9, roughness: 0.04 },
+  'iridium-red': { label: 'Iridium Red', color: '#ff3b3b', opacity: 0.86, metalness: 0.9, roughness: 0.04 },
   'iridium-silver': { label: 'Mirror Silver', color: '#d8dde3', opacity: 0.9, metalness: 1, roughness: 0.03 },
-  rainbow: { label: 'Rainbow', color: '#8fa3ff', opacity: 0.85, metalness: 0.9, roughness: 0.05, iridescence: 1 },
+  rainbow: { label: 'Rainbow', color: '#8fa3ff', opacity: 0.86, metalness: 0.9, roughness: 0.04, iridescence: 1 },
 };
 
+// Adds triplanar carbon weave support to a physical material, driven by a
+// uniform so switching finishes never recompiles the shader.
+function enableCarbon(material) {
+  const uniforms = { triMap: { value: carbonWeave() }, triStrength: { value: 0 }, triScale: { value: 6.5 } };
+  material.userData.carbon = uniforms;
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNormal;')
+      .replace(
+        '#include <worldpos_vertex>',
+        '#include <worldpos_vertex>\nvTriPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvTriNormal = normalize(mat3(modelMatrix) * objectNormal);',
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform sampler2D triMap;\nuniform float triStrength;\nuniform float triScale;\nvarying vec3 vTriPos;\nvarying vec3 vTriNormal;',
+      )
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        if (triStrength > 0.0) {
+          vec3 bw = pow(abs(vTriNormal), vec3(4.0));
+          bw /= (bw.x + bw.y + bw.z);
+          vec3 p = vTriPos * triScale;
+          vec3 weave = texture2D(triMap, p.zy).rgb * bw.x + texture2D(triMap, p.xz).rgb * bw.y + texture2D(triMap, p.xy).rgb * bw.z;
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * weave * 1.7, triStrength);
+        }`,
+      );
+  };
+  material.customProgramCacheKey = () => 'carbon-tri';
+}
+
 export function applyFinish(material, finishId) {
-  const f = FINISHES[finishId] || FINISHES.gloss;
+  let f = FINISHES[finishId] || FINISHES.gloss;
+  if (f.shellOnly && !material.userData.carbon) f = FINISHES.gloss;
   material.roughness = f.roughness;
   material.metalness = f.metalness;
   material.clearcoat = f.clearcoat;
   material.clearcoatRoughness = f.clearcoatRoughness;
-  material.iridescence = f.iridescence;
+  material.iridescence = f.iridescence || 0;
   material.iridescenceIOR = 1.5;
+  const normalMap = f.flake ? metalFlake() : null;
+  const peel = f.clearcoat > 0 ? orangePeel() : null;
+  if (material.normalMap !== normalMap || material.clearcoatNormalMap !== peel) {
+    material.normalMap = normalMap;
+    material.clearcoatNormalMap = peel;
+    material.needsUpdate = true;
+  }
+  if (f.flake) material.normalScale.setScalar(f.flake);
+  material.clearcoatNormalScale.setScalar(0.08);
+  if (material.userData.carbon) material.userData.carbon.triStrength.value = f.carbon ? 1 : 0;
 }
 
 // ---------------------------------------------------------------------------
-// Procedural full-face helmet
+// Procedural race helmet, styled on modern track helmets (long tail, big
+// integrated spoiler, sculpted visor pods, brow intakes, pointed chin bar).
 // ---------------------------------------------------------------------------
 
 const PI = Math.PI;
@@ -44,21 +91,30 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-// Shell surface in spherical-ish coordinates.
-// theta: azimuth, 0 = front (+Z). phi: polar angle, 0 = crown.
+// theta: azimuth, 0 = front (+Z), +PI/2 = +X. phi: polar angle, 0 = crown.
 function shellPoint(theta, phi, target = new THREE.Vector3()) {
   const s = Math.sin(phi);
   const c = Math.cos(phi);
-  const front = Math.max(Math.cos(theta), 0);
-  const lower = smoothstep(0.5 * PI, 0.82 * PI, phi);
-  const back = Math.max(-Math.cos(theta), 0);
-  const narrow = 1 - 0.1 * smoothstep(0.55 * PI, 0.85 * PI, phi) * (0.5 + 0.5 * front);
-  const x = 1.0 * s * Math.sin(theta) * narrow;
-  const y = 1.04 * c + 0.05 - 0.1 * lower * front * front; // chin drops lower than the nape
-  let z = 1.2 * s * Math.cos(theta);
-  z += 0.2 * lower * front * front; // chin bar juts forward
-  z -= 0.06 * lower * back; // tuck at the nape
-  z -= 0.05 * smoothstep(0.1 * PI, 0.4 * PI, phi) * front * (1 - lower); // flatter brow above the eye port
+  const ct = Math.cos(theta);
+  const front = Math.max(ct, 0);
+  const back = Math.max(-ct, 0);
+  const lower = smoothstep(0.5 * PI, 0.88 * PI, phi);
+  const chin = lower * Math.pow(front, 2);
+  const brow = smoothstep(0.08 * PI, 0.42 * PI, phi) * (1 - smoothstep(0.42 * PI, 0.5 * PI, phi));
+  const nape = smoothstep(0.58 * PI, 0.74 * PI, phi) * back;
+
+  // Long, slightly tapering tail; narrow, pointed chin.
+  const narrow = 1 - 0.13 * lower * Math.pow(front, 1.4) - 0.04 * lower;
+  const x = 1.0 * s * Math.sin(theta) * narrow * (1 + 0.035 * nape);
+  let y = 1.02 * c + 0.06;
+  let z = (1.2 - 0.05 * ct) * s * ct;
+
+  z += 0.24 * chin; // chin bar pushes forward…
+  y -= 0.13 * chin; // …and down
+  z -= 0.06 * brow * front * front; // flatter brow over the eye port
+  y += 0.035 * Math.exp(-((phi - 0.2 * PI) ** 2) / 0.06) * back; // raised crown line leading into the spoiler
+  z -= 0.05 * nape * (1 - 0.6 * smoothstep(0.7 * PI, 0.74 * PI, phi)); // tucked nape…
+  y -= 0.03 * nape;
   return target.set(x, y, z);
 }
 
@@ -71,22 +127,27 @@ function shellNormal(theta, phi, target = new THREE.Vector3()) {
   return target.normalize();
 }
 
+// Lower edge: low at the chin, rising along the jaw, with a short rear lip.
 const bottomPhi = (theta) => {
   const c = Math.cos(theta);
-  return 0.72 * PI + 0.1 * PI * Math.pow(Math.max(c, 0), 1.5) + 0.03 * PI * Math.max(-c, 0);
+  return 0.745 * PI + 0.125 * PI * Math.pow(Math.max(c, 0), 1.4) - 0.035 * PI * Math.max(-c, 0);
 };
 
-// Eye port as a superellipse in (theta, phi) parameter space.
-const PORT = { a: 1.12, b: 0.085 * PI, c: 0.47 * PI, n: 4 };
-const VISOR = { a: 1.28, b: 0.115 * PI, c: 0.47 * PI, n: 4 };
+// Regions are superellipses in (theta, phi) space with separate top/bottom
+// heights, so the eye port can have a straight brow and a deeper lower edge.
+const PORT = { t: 0, a: 1.16, bTop: 0.074 * PI, bBot: 0.1 * PI, c: 0.462 * PI, n: 4 };
+const VISOR = { t: 0, a: 1.31, bTop: 0.098 * PI, bBot: 0.128 * PI, c: 0.462 * PI, n: 4 };
 
-const superellipse = (e, theta, phi) =>
-  Math.pow(Math.abs(theta / e.a), e.n) + Math.pow(Math.abs((phi - e.c) / e.b), e.n);
+function superellipse(e, theta, phi) {
+  const b = phi < e.c ? e.bTop : e.bBot;
+  return Math.pow(Math.abs((theta - e.t) / e.a), e.n) + Math.pow(Math.abs((phi - e.c) / b), e.n);
+}
 
-// Build a parametric patch, cutting away a superellipse region (or keeping
-// only the inside of it) and snapping boundary vertices onto the curve so the
-// cut edge is smooth rather than stair-stepped.
-function buildPatch({ segU, segV, param, region, keep, scale = 1 }) {
+// Parametric patch over the shell. Optionally cuts away (keep: 'outside') or
+// keeps only (keep: 'inside') a superellipse region, snapping boundary
+// vertices onto the curve for a smooth edge. `lift(theta, phi, g)` raises the
+// surface along the normal for sculpted pads.
+function buildPatch({ segU, segV, param, region, keep, scale = 1, lift, uvScale = [1, 1] }) {
   const params = [];
   const inside = [];
   for (let j = 0; j <= segV; j++)
@@ -117,49 +178,150 @@ function buildPatch({ segU, segV, param, region, keep, scale = 1 }) {
       const g = superellipse(region, theta, phi);
       if (g < 1e-6) continue;
       const s = Math.pow(g, -1 / region.n);
-      params[k] = [theta * s, region.c + (phi - region.c) * s];
+      params[k] = [region.t + (theta - region.t) * s, region.c + (phi - region.c) * s];
     }
   }
 
-  const pos = new Float32Array(params.length * 3);
-  const nor = new Float32Array(params.length * 3);
+  const count = params.length;
+  const pos = new Float32Array(count * 3);
+  const nor = new Float32Array(count * 3);
+  const uv = new Float32Array(count * 2);
+  const edge = new Float32Array(count);
   const p = new THREE.Vector3();
   const n = new THREE.Vector3();
   params.forEach(([theta, phi], k) => {
     shellPoint(theta, phi, p).multiplyScalar(scale);
     shellNormal(theta, phi, n);
+    const g = region ? superellipse(region, theta, phi) : 0;
+    if (lift) p.addScaledVector(n, lift(theta, phi, g));
     pos.set([p.x, p.y, p.z], k * 3);
     nor.set([n.x, n.y, n.z], k * 3);
+    uv.set([(k % (segU + 1)) / segU * uvScale[0], Math.floor(k / (segU + 1)) / segV * uvScale[1]], k * 2);
+    edge[k] = g;
   });
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('edge', new THREE.BufferAttribute(edge, 1));
   geo.setIndex(tris);
+  if (lift) geo.computeVertexNormals();
   return geo;
 }
 
-function superellipseCurve(e, offset, scale = 1, samples = 160) {
+// A raised, sculpted pad sitting on the shell (visor pods, vent housings).
+function buildPad({ t, c, a, b, n = 3, height, wall = 0.75, segs = 48 }) {
+  const region = { t, a, bTop: b, bBot: b, c, n };
+  return buildPatch({
+    segU: segs,
+    segV: segs,
+    param: (u, v) => [t - a * 1.05 + u * a * 2.1, c - b * 1.05 + v * b * 2.1],
+    region,
+    keep: 'inside',
+    lift: (th, ph, g) => height * (1 - smoothstep(wall, 1, g)) + 0.002,
+  });
+}
+
+function regionCurve(e, offset, scale = 1, samples = 180, liftFn) {
   const pts = [];
   const p = new THREE.Vector3();
   const n = new THREE.Vector3();
   for (let k = 0; k < samples; k++) {
     const s = (k / samples) * 2 * PI;
     const cs = Math.cos(s), sn = Math.sin(s);
-    const theta = e.a * Math.sign(cs) * Math.pow(Math.abs(cs), 2 / e.n);
-    const phi = e.c + e.b * Math.sign(sn) * Math.pow(Math.abs(sn), 2 / e.n);
+    const theta = e.t + e.a * Math.sign(cs) * Math.pow(Math.abs(cs), 2 / e.n);
+    const b = sn < 0 ? e.bTop : e.bBot;
+    const phi = e.c + b * Math.sign(sn) * Math.pow(Math.abs(sn), 2 / e.n);
     shellPoint(theta, phi, p);
     shellNormal(theta, phi, n);
-    pts.push(p.clone().multiplyScalar(scale).addScaledVector(n, offset));
+    pts.push(p.clone().multiplyScalar(scale).addScaledVector(n, offset + (liftFn ? liftFn(theta, phi) : 0)));
   }
   return new THREE.CatmullRomCurve3(pts, true);
 }
 
-function placeOnShell(object, theta, phi, lift = 0) {
+function placeOnShell(object, theta, phi, lift = 0, spin = 0) {
   const p = shellPoint(theta, phi, new THREE.Vector3());
   const n = shellNormal(theta, phi, new THREE.Vector3());
   object.position.copy(p).addScaledVector(n, lift);
-  object.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+  // Orient +Z along the normal and +Y towards the crown so parts line up.
+  const up = new THREE.Vector3(0, 1, 0).addScaledVector(n, -n.y);
+  if (up.lengthSq() < 1e-4) up.set(0, 0, 1);
+  up.normalize();
+  const right = new THREE.Vector3().crossVectors(up, n);
+  object.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, n));
+  if (spin) object.rotateZ(spin);
   return object;
+}
+
+// Grid surface from a point function f(u, v) -> Vector3.
+function gridGeometry(nu, nv, f, flip = false) {
+  const pos = [];
+  const uv = [];
+  for (let j = 0; j <= nv; j++)
+    for (let i = 0; i <= nu; i++) {
+      const p = f(i / nu, j / nv);
+      pos.push(p.x, p.y, p.z);
+      uv.push(i / nu, j / nv);
+    }
+  const index = [];
+  for (let j = 0; j < nv; j++)
+    for (let i = 0; i < nu; i++) {
+      const a = j * (nu + 1) + i, b = a + 1, c = a + nu + 2, d = a + nu + 1;
+      if (flip) index.push(a, b, d, b, c, d);
+      else index.push(a, d, b, b, d, c);
+    }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(index);
+  g.computeVertexNormals();
+  return g;
+}
+
+// Integrated rear spoiler: rises out of the crown and kicks up past the tail,
+// with endplates at each side.
+function buildSpoiler() {
+  const SPAN = 0.5;
+  const PHI0 = 0.16 * PI;
+  const DPHI = 0.28 * PI;
+  const span = (s) => 1 - 0.3 * Math.pow(Math.abs(s), 3);
+  // Upper skin rises out of the crown; the lower skin peels away from the
+  // shell over the back half, leaving a deep air channel under the lip.
+  const upper = (c, s) => (0.3 * Math.pow(c, 2.1) + 0.02 * Math.sin(c * PI)) * span(s);
+  const lower = (c, s) => 0.255 * Math.pow(smoothstep(0.35, 1, c), 1.5) * span(s);
+  const at = (s, c, h) => {
+    const theta = PI + s * SPAN * (1 - 0.15 * c);
+    const phi = PHI0 + c * DPHI;
+    const p = shellPoint(theta, phi, new THREE.Vector3());
+    return p.addScaledVector(shellNormal(theta, phi, new THREE.Vector3()), h);
+  };
+  const top = gridGeometry(80, 40, (u, v) => {
+    const s = u * 2 - 1;
+    return at(s, v, upper(v, s));
+  });
+  const under = gridGeometry(80, 30, (u, v) => {
+    const s = u * 2 - 1;
+    return at(s, v, lower(v, s) + 0.001);
+  }, true);
+  const trailing = gridGeometry(80, 4, (u, v) => {
+    const s = u * 2 - 1;
+    return at(s, 1, THREE.MathUtils.lerp(upper(1, s), lower(1, s), v));
+  });
+  const plates = [-1, 1].map((s) =>
+    gridGeometry(30, 4, (u, v) => {
+      // Endplates reach slightly below the wing like small fins.
+      const c = u;
+      const lo = Math.max(0, lower(c, s) - 0.06 * smoothstep(0.4, 1, c));
+      return at(s, c, THREE.MathUtils.lerp(upper(c, s), lo, v));
+    }, s > 0),
+  );
+  return { top, under, trailing, plates };
+}
+
+function capsuleSlot(len, radius, depth) {
+  const g = new THREE.CapsuleGeometry(radius, len, 6, 20).rotateZ(PI / 2);
+  g.scale(1, 1, depth / radius);
+  return g;
 }
 
 export function buildProceduralHelmet() {
@@ -167,14 +329,43 @@ export function buildProceduralHelmet() {
   group.name = 'helmet';
 
   const paint = new THREE.MeshPhysicalMaterial({ color: '#e10600' });
+  enableCarbon(paint);
   applyFinish(paint, 'gloss');
-  const trim = new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.7, metalness: 0 });
-  const liner = new THREE.MeshStandardMaterial({ color: '#1a1a1c', roughness: 0.95, side: THREE.BackSide });
-  const visorMat = new THREE.MeshPhysicalMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  // Same paint for spoiler undersides/endplates, visible from both sides.
+  const paintBoth = new THREE.MeshPhysicalMaterial({ color: '#e10600', side: THREE.DoubleSide });
+  enableCarbon(paintBoth);
+  applyFinish(paintBoth, 'gloss');
+  // Moulded plastic parts (pods, vents): take the "trim" colour.
+  const hardware = new THREE.MeshPhysicalMaterial({ color: '#111111', roughness: 0.32, metalness: 0.1, clearcoat: 0.6, clearcoatRoughness: 0.15 });
+  const ventDark = new THREE.MeshStandardMaterial({ color: '#030304', roughness: 0.9 });
+  const ventDarkBoth = new THREE.MeshStandardMaterial({ color: '#0a0a0b', roughness: 0.6, side: THREE.DoubleSide });
+  const rubber = new THREE.MeshPhysicalMaterial({ color: '#0b0b0c', roughness: 0.82, sheen: 0.4, sheenRoughness: 0.8, sheenColor: new THREE.Color('#333') });
+  const liner = new THREE.MeshPhysicalMaterial({
+    color: '#1d1e21',
+    roughness: 0.9,
+    sheen: 1,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color('#6b6f78'),
+    normalMap: quiltNormal(),
+    normalScale: new THREE.Vector2(0.9, 0.9),
+    side: THREE.BackSide,
+  });
+  const visorMat = new THREE.MeshPhysicalMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    clearcoat: 1,
+    clearcoatRoughness: 0.02,
+    envMapIntensity: 1.4,
+  });
 
+  const cast = (m) => ((m.castShadow = true), (m.receiveShadow = true), m);
+
+  // Shell -------------------------------------------------------------------
   const shellGeo = buildPatch({
-    segU: 200,
-    segV: 110,
+    segU: 260,
+    segV: 140,
     // Seam sits off to one side at an odd angle so rays along the centre
     // line (used for centring and mirroring) never land exactly on it.
     param: (u, v) => {
@@ -183,80 +374,137 @@ export function buildProceduralHelmet() {
     },
     region: PORT,
     keep: 'outside',
+    uvScale: [1, 1],
   });
-  const shell = new THREE.Mesh(shellGeo, paint);
+  const shell = cast(new THREE.Mesh(shellGeo, paint));
   shell.name = 'shell';
   shell.userData.paintable = true;
-  shell.castShadow = true;
   group.add(shell);
 
   const inner = new THREE.Mesh(shellGeo, liner);
-  inner.scale.setScalar(0.95);
-  inner.position.y = 0.0025;
+  inner.scale.setScalar(0.94);
+  inner.position.y = 0.004;
   group.add(inner);
 
-  const portTrim = new THREE.Mesh(new THREE.TubeGeometry(superellipseCurve(PORT, -0.012, 0.975), 240, 0.042, 12, true), trim);
+  // Spoiler (paintable, takes stickers) ---------------------------------------
+  const sp = buildSpoiler();
+  const spoiler = cast(new THREE.Mesh(sp.top, paint));
+  spoiler.name = 'spoiler';
+  spoiler.userData.paintable = true;
+  group.add(spoiler);
+  group.add(cast(new THREE.Mesh(sp.under, ventDarkBoth)));
+  for (const g of [sp.trailing, ...sp.plates]) group.add(cast(new THREE.Mesh(g, paintBoth)));
+
+  // Rear exhaust slots, tucked under the spoiler
+  for (const side of [-1, 1]) {
+    const slot = placeOnShell(new THREE.Mesh(capsuleSlot(0.16, 0.022, 0.012), ventDark), PI + side * 0.17, 0.43 * PI, 0.004);
+    group.add(slot);
+  }
+
+  // Gaskets -----------------------------------------------------------------
+  const portTrim = new THREE.Mesh(new THREE.TubeGeometry(regionCurve(PORT, -0.018, 0.985), 320, 0.03, 14, true), rubber);
   portTrim.name = 'eyeport-gasket';
   group.add(portTrim);
 
   const bottomPts = [];
-  for (let k = 0; k < 200; k++) {
-    const theta = -PI + (k / 200) * 2 * PI;
-    bottomPts.push(shellPoint(theta, bottomPhi(theta)).multiplyScalar(0.975));
+  const bp = new THREE.Vector3();
+  const bn = new THREE.Vector3();
+  for (let k = 0; k < 240; k++) {
+    const theta = -PI + (k / 240) * 2 * PI;
+    const phi = bottomPhi(theta);
+    shellPoint(theta, phi, bp);
+    shellNormal(theta, phi, bn);
+    bottomPts.push(bp.clone().multiplyScalar(0.985).addScaledVector(bn, -0.02));
   }
-  const neckTrim = new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bottomPts, true), 240, 0.05, 12, true),
-    trim,
-  );
-  neckTrim.name = 'neck-gasket';
-  group.add(neckTrim);
+  const neckGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bottomPts, true), 320, 0.055, 16, true);
+  const neck = cast(new THREE.Mesh(neckGeo, rubber));
+  neck.name = 'neck-roll';
+  group.add(neck);
 
+  // Visor pods (pivot covers) -------------------------------------------------
+  for (const side of [-1, 1]) {
+    const pod = cast(new THREE.Mesh(buildPad({ t: side * 1.4, c: 0.47 * PI, a: 0.3, b: 0.078 * PI, n: 2.6, height: 0.048, wall: 0.5 }), hardware));
+    pod.name = 'visor-pod';
+    group.add(pod);
+    const screw = placeOnShell(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 24).rotateX(PI / 2), ventDark), side * 1.43, 0.47 * PI, 0.052);
+    group.add(screw);
+  }
+
+  // Brow intakes ------------------------------------------------------------
+  for (const side of [-1, 1]) {
+    const t = side * 0.3;
+    const pad = cast(new THREE.Mesh(buildPad({ t, c: 0.25 * PI, a: 0.12, b: 0.095 * PI, n: 3, height: 0.045, wall: 0.55 }), hardware));
+    pad.name = 'brow-vent';
+    group.add(pad);
+    const slot = placeOnShell(new THREE.Mesh(capsuleSlot(0.1, 0.018, 0.012), ventDark), t, 0.315 * PI, 0.046);
+    slot.rotateX(-0.5);
+    group.add(slot);
+    const slider = placeOnShell(new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.035, 0.02), ventDark), t, 0.22 * PI, 0.047);
+    group.add(slider);
+  }
+
+  // Chin vents ----------------------------------------------------------------
+  const chinPad = cast(new THREE.Mesh(buildPad({ t: 0, c: 0.665 * PI, a: 0.24, b: 0.045 * PI, n: 3, height: 0.03, wall: 0.55 }), hardware));
+  chinPad.name = 'chin-vent';
+  group.add(chinPad);
+  for (let k = -1; k <= 1; k++) {
+    const slot = placeOnShell(new THREE.Mesh(capsuleSlot(0.07, 0.012, 0.01), ventDark), k * 0.1, 0.667 * PI, 0.031);
+    group.add(slot);
+  }
+  for (const side of [-1, 1]) {
+    const intake = placeOnShell(new THREE.Mesh(capsuleSlot(0.13, 0.02, 0.012), ventDark), side * 0.34, 0.8 * PI, 0.004, side * 0.5);
+    group.add(intake);
+  }
+
+  // Visor -------------------------------------------------------------------
   const visorGeo = buildPatch({
-    segU: 90,
-    segV: 40,
-    param: (u, v) => [(-1.35 + u * 2.7), (0.33 + v * 0.3) * PI],
+    segU: 120,
+    segV: 50,
+    param: (u, v) => [-1.4 + u * 2.8, (0.3 + v * 0.36) * PI],
     region: VISOR,
     keep: 'inside',
-    scale: 1.045,
+    scale: 1.042,
   });
+  visorGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(visorGeo.attributes.position.count * 4), 4));
   const visor = new THREE.Mesh(visorGeo, visorMat);
   visor.name = 'visor';
   visor.renderOrder = 1000;
-  group.add(visor);
-
-  // Small hardware details
-  const pivotGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.04, 32).rotateX(PI / 2);
+  const visorGroup = new THREE.Group();
+  visorGroup.add(visor);
+  // Tear-off posts and the lock tab
   for (const side of [-1, 1]) {
-    const pivot = placeOnShell(new THREE.Mesh(pivotGeo, trim), side * 1.36, 0.47 * PI, 0.035);
-    pivot.name = 'visor-pivot';
-    group.add(pivot);
+    const post = placeOnShell(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.03, 16).rotateX(PI / 2), hardware), side * 1.02, 0.39 * PI, 0.066);
+    visorGroup.add(post);
   }
-  const tab = placeOnShell(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.05), trim), 0, 0.59 * PI, 0.06);
-  group.add(tab);
-
-  const chinVent = placeOnShell(new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.26, 6, 16).rotateZ(PI / 2), trim), 0, 0.665 * PI, 0.015);
-  chinVent.scale.z = 0.5;
-  group.add(chinVent);
-
-  for (const side of [-1, 1]) {
-    const topVent = placeOnShell(new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.14, 6, 16).rotateX(PI / 2), trim), side * 0.28, 0.2 * PI, 0.012);
-    topVent.scale.z = 0.5;
-    group.add(topVent);
-  }
-
-  const exhaust = placeOnShell(new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.42, 6, 16).rotateZ(PI / 2), trim), PI, 0.58 * PI, 0.01);
-  exhaust.scale.z = 0.45;
-  group.add(exhaust);
+  const lock = placeOnShell(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.035), hardware), -0.32, 0.585 * PI, 0.07);
+  visorGroup.add(lock);
+  group.add(visorGroup);
 
   return {
     group,
-    paintables: [shell],
-    paintMaterials: [paint],
-    trimMaterials: [trim],
+    paintables: [shell, spoiler],
+    paintMaterials: [paint, paintBoth],
+    trimMaterials: [hardware],
     visorMaterials: [visorMat],
-    visors: [visor],
+    visors: [visorGroup],
+    visorMeshes: [visor],
     kind: 'procedural',
   };
+}
+
+// Visor tint lives in RGBA vertex colours so the printed black border band
+// stays opaque while the lens area takes the tint's transparency.
+function paintVisorVertices(mesh, tint) {
+  const g = mesh.geometry;
+  const edge = g.attributes.edge;
+  const col = g.attributes.color;
+  if (!edge || !col) return;
+  for (let i = 0; i < col.count; i++) {
+    const border = smoothstep(0.7, 0.8, edge.getX(i));
+    const shade = 1 - border * 0.985;
+    col.setXYZW(i, shade, shade, shade, THREE.MathUtils.lerp(tint.opacity, 1, border));
+  }
+  col.needsUpdate = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -291,12 +539,14 @@ export async function loadHelmetModel(file) {
     group.updateMatrixWorld(true);
 
     const paint = new THREE.MeshPhysicalMaterial({ color: '#e10600' });
+    enableCarbon(paint);
     applyFinish(paint, 'gloss');
-    const visorMat = new THREE.MeshPhysicalMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    const visorMat = new THREE.MeshPhysicalMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, clearcoat: 1 });
     const paintables = [];
     const visors = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true;
       const name = `${o.name} ${o.material?.name || ''}`;
       if (VISOR_RE.test(name)) {
         o.material = visorMat;
@@ -310,7 +560,7 @@ export async function loadHelmetModel(file) {
       }
     });
     if (!paintables.length) throw new Error('No paintable meshes found in this model.');
-    return { group, paintables, paintMaterials: [paint], trimMaterials: [], visorMaterials: [visorMat], visors, kind: 'custom' };
+    return { group, paintables, paintMaterials: [paint], trimMaterials: [], visorMaterials: [visorMat], visors, visorMeshes: [], kind: 'custom' };
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -325,11 +575,14 @@ export function applyBase(helmet, base) {
   const v = VISORS[base.visor] || VISORS['dark-smoke'];
   for (const m of helmet.visorMaterials) {
     m.color.set(v.color);
-    m.opacity = v.opacity;
+    m.opacity = m.vertexColors ? 1 : v.opacity;
     m.metalness = v.metalness;
     m.roughness = v.roughness;
     m.iridescence = v.iridescence || 0;
-    m.clearcoat = 1;
+  }
+  if (helmet._visorKey !== base.visor) {
+    for (const mesh of helmet.visorMeshes || []) paintVisorVertices(mesh, v);
+    helmet._visorKey = base.visor;
   }
   for (const vis of helmet.visors) vis.visible = base.showVisor !== false;
 }
