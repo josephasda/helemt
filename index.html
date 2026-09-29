@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Helmet Livery Studio</title>
+    <meta name="description" content="Design your own motorbike helmet graphics in 3D." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bungee&family=Orbitron:wght@400;800&family=Permanent+Marker&family=Racing+Sans+One&family=Russo+One&family=Teko:wght@500;700&family=Titillium+Web:ital,wght@0,400;0,600;0,700;1,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Helmet <b>Livery</b> Studio</span>
+      </div>
+      <div class="toolbar">
+        <button class="tb" id="btn-undo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg><span>Undo</span></button>
+        <button class="tb" id="btn-redo" title="Redo (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg><span>Redo</span></button>
+        <span class="tb-sep"></span>
+        <button class="tb" id="btn-new" title="Start a new design"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6M9 15h6"/></svg><span>New</span></button>
+        <button class="tb" id="btn-open" title="Open a saved design"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Open</span></button>
+        <button class="tb" id="btn-save" title="Save design file"><svg viewBox="0 0 24 24"><path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8M7 21v-7h10v7"/></svg><span>Save</span></button>
+        <button class="tb accent" id="btn-export" title="Export images and print sheet"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span>Export</span></button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel left" id="layers-panel">
+        <div class="panel-head">
+          <h2>Layers</h2>
+          <span class="count" id="layer-count">0 / 100</span>
+        </div>
+        <div class="add-row">
+          <button class="add-btn" id="btn-add-sticker"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Sticker</button>
+          <button class="add-btn" id="btn-add-text"><svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Text</button>
+          <button class="add-btn" id="btn-upload"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Upload</button>
+        </div>
+        <ol class="layer-list" id="layer-list"></ol>
+        <div class="empty" id="layers-empty">
+          <p>No stickers yet.</p>
+          <p class="muted">Add a sticker from the library, some text, or upload your own logo.</p>
+        </div>
+        <div class="layer-actions">
+          <button class="icon-btn" id="btn-up" title="Move layer up (Ctrl+])"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+          <button class="icon-btn" id="btn-down" title="Move layer down (Ctrl+[)"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button class="icon-btn" id="btn-dup" title="Duplicate (Ctrl+D)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+          <button class="icon-btn danger" id="btn-del" title="Delete (Del)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+        </div>
+      </aside>
+
+      <section class="viewport" id="viewport">
+        <canvas id="scene"></canvas>
+        <div class="views" id="views">
+          <button data-view="front">Front</button>
+          <button data-view="left">Left</button>
+          <button data-view="right">Right</button>
+          <button data-view="back">Back</button>
+          <button data-view="top">Top</button>
+          <button data-view="three">3/4</button>
+          <button id="btn-spin" class="toggle" title="Turntable">↻</button>
+        </div>
+        <div class="hint" id="hint">
+          <span><kbd>Drag</kbd> sticker to move</span>
+          <span><kbd>Shift</kbd>+drag rotate</span>
+          <span><kbd>Alt</kbd>+drag scale</span>
+          <span><kbd>Drag</kbd> helmet to orbit · <kbd>Wheel</kbd> zoom</span>
+        </div>
+        <div class="toast" id="toast"></div>
+        <div class="drop-overlay" id="drop-overlay"><div>Drop images to add them as stickers</div></div>
+      </section>
+
+      <aside class="panel right">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="sticker" role="tab">Sticker</button>
+          <button class="tab" data-tab="paint" role="tab">Paint &amp; Visor</button>
+        </div>
+
+        <div class="tab-body" data-body="sticker">
+          <div class="no-selection" id="no-selection">
+            <div class="ghost-sticker"></div>
+            <p>Select a sticker on the helmet or in the layer list to edit it.</p>
+          </div>
+
+          <div id="props" hidden>
+            <div class="prop-head">
+              <img id="prop-thumb" alt="" />
+              <input id="prop-name" class="name-input" maxlength="40" />
+              <button class="icon-btn small" id="btn-replace" title="Swap artwork"><svg viewBox="0 0 24 24"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg></button>
+            </div>
+
+            <section class="group" id="text-group">
+              <h3>Text</h3>
+              <input id="prop-text" class="text-input" maxlength="40" />
+              <div class="row">
+                <select id="prop-font"></select>
+                <button class="chip toggle" id="prop-italic" title="Italic"><i>I</i></button>
+              </div>
+              <div class="row two">
+                <label>Fill <input type="color" id="prop-text-fill" /></label>
+                <label>Outline <input type="color" id="prop-text-stroke" /></label>
+              </div>
+              <label class="slider">Outline width <input type="range" id="prop-stroke-width" min="0" max="20" step="1" /><output></output></label>
+              <label class="slider">Letter spacing <input type="range" id="prop-spacing" min="-10" max="40" step="1" /><output></output></label>
+            </section>
+
+            <section class="group" id="color-group">
+              <h3>Colour</h3>
+              <div class="swatches" id="layer-swatches"></div>
+              <label class="row color-row">Custom <input type="color" id="prop-color" /><code id="prop-color-hex"></code></label>
+            </section>
+
+            <section class="group">
+              <h3>Transform</h3>
+              <label class="slider">Width <input type="range" id="prop-width" min="0.5" max="45" step="0.1" /><output></output></label>
+              <label class="slider">Height <input type="range" id="prop-height" min="0.5" max="45" step="0.1" /><output></output></label>
+              <label class="slider">Rotation <input type="range" id="prop-rotation" min="-180" max="180" step="1" /><output></output></label>
+              <label class="slider">Wrap depth <input type="range" id="prop-depth" min="0.2" max="2" step="0.05" /><output></output></label>
+              <div class="row wrap">
+                <button class="chip toggle" id="prop-lock-aspect" title="Keep proportions when resizing">🔗 Keep ratio</button>
+                <button class="chip toggle" id="prop-flipx">⇋ Flip H</button>
+                <button class="chip toggle" id="prop-flipy">⇅ Flip V</button>
+                <button class="chip" id="prop-center" title="Snap onto the helmet's centre line">⊕ Centre</button>
+                <button class="chip" id="prop-reset-ratio" title="Restore the artwork's original proportions">Reset ratio</button>
+              </div>
+            </section>
+
+            <section class="group">
+              <h3>Symmetry</h3>
+              <div class="row wrap">
+                <button class="chip toggle" id="prop-mirror" title="Automatically copy to the opposite side">Mirror to other side</button>
+                <button class="chip toggle" id="prop-mirror-flip" title="Mirror as a reflection (off keeps text readable)">Reflect artwork</button>
+              </div>
+            </section>
+
+            <section class="group">
+              <h3>Material</h3>
+              <label class="slider">Opacity <input type="range" id="prop-opacity" min="0.05" max="1" step="0.01" /><output></output></label>
+              <div class="chips" id="prop-finish"></div>
+            </section>
+
+            <section class="group" id="upload-group">
+              <h3>Image</h3>
+              <button class="chip wide" id="prop-knockout">Remove white background</button>
+            </section>
+
+            <section class="group">
+              <div class="row wrap">
+                <button class="chip toggle" id="prop-visible">👁 Visible</button>
+                <button class="chip toggle" id="prop-locked">🔒 Locked</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="tab-body" data-body="paint" hidden>
+          <section class="group">
+            <h3>Shell colour</h3>
+            <div class="swatches" id="base-swatches"></div>
+            <label class="row color-row">Custom <input type="color" id="base-color" /><code id="base-color-hex"></code></label>
+          </section>
+          <section class="group">
+            <h3>Paint finish</h3>
+            <div class="chips" id="base-finish"></div>
+          </section>
+          <section class="group">
+            <h3>Visor</h3>
+            <div class="visor-grid" id="base-visor"></div>
+            <button class="chip toggle wide" id="base-show-visor">Show visor</button>
+          </section>
+          <section class="group">
+            <h3>Trim &amp; vents</h3>
+            <div class="chips" id="base-trim"></div>
+          </section>
+          <section class="group">
+            <h3>Helmet model</h3>
+            <p class="muted small">Using your own product? Load a .glb model — meshes named <code>visor</code>/<code>glass</code> become the visor, <code>trim</code>/<code>rubber</code>/<code>vent</code> keep their material, everything else is paintable.</p>
+            <div class="row">
+              <button class="chip wide" id="btn-model">Load .glb model</button>
+              <button class="chip" id="btn-model-reset">Default</button>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </main>
+
+    <dialog class="modal library" id="library">
+      <div class="modal-head">
+        <h2 id="library-title">Sticker Library</h2>
+        <button class="icon-btn" data-close title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="lib-tabs" id="lib-tabs"></div>
+      <div class="lib-grid" id="lib-grid"></div>
+    </dialog>
+
+    <dialog class="modal export" id="export">
+      <div class="modal-head">
+        <h2>Export</h2>
+        <button class="icon-btn" data-close title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="export-body">
+        <div class="export-card">
+          <h3>Render</h3>
+          <p class="muted">High-resolution PNG of the current camera view, for your shop listings or to share.</p>
+          <label class="row"><input type="checkbox" id="shot-transparent" checked /> Transparent background</label>
+          <button class="primary" id="btn-shot">Download render</button>
+        </div>
+        <div class="export-card">
+          <h3>Production sheet</h3>
+          <p class="muted">Every sticker laid out flat at real size with cut lines and labels, ready to send to the printer / plotter.</p>
+          <label class="row">Resolution
+            <select id="sheet-dpi"><option value="150">150 DPI (proof)</option><option value="300">300 DPI (print)</option></select>
+          </label>
+          <p class="summary" id="sheet-summary"></p>
+          <button class="primary" id="btn-sheet">Download print sheet</button>
+        </div>
+        <div class="export-card">
+          <h3>Design file</h3>
+          <p class="muted">A .json file containing the whole livery, including uploaded images. Open it again later to keep editing.</p>
+          <button class="primary" id="btn-save-2">Save design</button>
+        </div>
+      </div>
+    </dialog>
+
+    <input type="file" id="file-upload" accept="image/*" multiple hidden />
+    <input type="file" id="file-design" accept=".json,application/json" hidden />
+    <input type="file" id="file-model" accept=".glb,.gltf" hidden />
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
