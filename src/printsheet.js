@@ -23,7 +23,7 @@ export function sheetSummary(layers) {
 
 // Renders a print-ready production sheet: each sticker at real size with a
 // cut box and label. Returns a PNG Blob.
-export async function renderProductionSheet({ layers, base, assets, dpi = 150, title = 'Helmet livery', preview }) {
+export async function renderProductionSheet({ layers, base, assets, dpi = 150, title = 'F1SHSTICKERS · Helmet kit', preview }) {
   const pxPerCm = dpi / CM_PER_INCH;
   const sheetW = 42; // A3 landscape width in cm
   const margin = 1.5;

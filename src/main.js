@@ -10,7 +10,7 @@ import { quote, money, PRICING } from './pricing.js';
 import { MODELS } from './models.js';
 
 const MAX_LAYERS = 100;
-const STORAGE_KEY = 'helmet-livery-studio:v3';
+const STORAGE_KEY = 'f1shstickers:v1';
 const COLORS = [
   { name: 'Alpine White', hex: '#f4f5f7' },
   { name: 'Silverstone', hex: '#c9ced6' },
@@ -310,7 +310,7 @@ function emptyDesign() {
 }
 
 function starterBase() {
-  return { color: '#f4f5f7', finish: 'carbon', visor: 'iridium-red', trim: '#111111', showVisor: true };
+  return { color: '#f4f5f7', finish: 'gloss', visor: 'dark-smoke', trim: '#111111', showVisor: true };
 }
 
 async function starterDesign() {
@@ -324,10 +324,10 @@ async function starterDesign() {
     design.layers.push(layer);
   };
   await put({ kind: 'preset', assetId: 'gt-stripe', name: 'Centre Stripe', color: '#e10600', rotation: 90, depth: 1.3 }, [0, 1, 0.12], { longestCm: 38 });
-  await put({ kind: 'preset', assetId: 'swoosh', name: 'Side Swoosh', color: '#f4f5f7', mirror: true, rotation: -6 }, [1, -0.4, 0.1], { longestCm: 24 });
-  await put({ kind: 'preset', assetId: 'roundel', name: 'Number Roundel', color: '#f4f5f7', mirror: true, mirrorFlip: false }, [1, 0.12, -0.7], { longestCm: 9 });
-  await put({ kind: 'text', name: '46', autoName: true, text: { ...TEXT_PRESETS[0].text, fill: '#111111', strokeWidth: 0 }, mirror: true, mirrorFlip: false }, [1, 0.12, -0.7], { longestCm: 5.2 });
-  await put({ kind: 'preset', assetId: 'checker-fade', name: 'Checker Fade', color: '#f4f5f7', rotation: 0 }, [0, -0.35, -1], { longestCm: 15 });
+  await put({ kind: 'preset', assetId: 'swoosh', name: 'Side Swoosh', color: '#111111', mirror: true, rotation: -6 }, [1, -0.4, 0.1], { longestCm: 24 });
+  await put({ kind: 'preset', assetId: 'roundel', name: 'Number Roundel', color: '#111111', mirror: true, mirrorFlip: false }, [1, 0.12, -0.7], { longestCm: 9 });
+  await put({ kind: 'text', name: '46', autoName: true, text: { ...TEXT_PRESETS.find((t) => t.name === 'Pixel Number').text, fill: '#f4f5f7', strokeWidth: 0 }, mirror: true, mirrorFlip: false }, [1, 0.12, -0.7], { longestCm: 5.6 });
+  await put({ kind: 'preset', assetId: 'checker-fade', name: 'Checker Fade', color: '#111111', rotation: 0 }, [0, -0.35, -1], { longestCm: 15 });
   await put({ kind: 'preset', assetId: 'bolt', name: 'Chin Bolt', color: '#e10600' }, [0, -0.9, 1], { longestCm: 5 });
   return design;
 }
@@ -439,7 +439,7 @@ function goToStep(name) {
   });
   $$('.step-body').forEach((b) => (b.hidden = b.dataset.body !== name));
   $('#btn-prev').style.visibility = i === 0 ? 'hidden' : 'visible';
-  $('#btn-next').textContent = i === STEPS.length - 1 ? 'Request a quote' : `Next: ${STEP_LABELS[STEPS[i + 1]]}`;
+  $('#btn-next').textContent = i === STEPS.length - 1 ? 'Request a quote' : `Continue to ${STEP_LABELS[STEPS[i + 1]]}`;
   if (changed) $('.config-scroll').scrollTop = 0;
   if (name === 'summary') {
     if (selectedId) select(null);
@@ -797,6 +797,8 @@ function specLine() {
 function refreshHeader() {
   $('#stage-model').textContent = helmet.label || 'Custom helmet';
   $('#stage-spec').textContent = specLine();
+  $('#foot-model').textContent = helmet.label || 'Custom helmet';
+  $('#foot-spec').textContent = specLine();
   $('#price-total').textContent = money(quote(state.layers, state.base).total);
 }
 
@@ -1241,7 +1243,7 @@ function designFile() {
 function saveDesign() {
   const blob = new Blob([JSON.stringify(designFile())], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  download(url, `helmet-livery-${new Date().toISOString().slice(0, 10)}.json`);
+  download(url, `f1shstickers-design-${new Date().toISOString().slice(0, 10)}.json`);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   toast('Design saved');
 }
@@ -1286,7 +1288,7 @@ $('#btn-new').addEventListener('click', () => {
 });
 
 let studioMode = 'light';
-const studioBg = () => (studioMode === 'dark' ? '#16181b' : '#eceef1');
+const studioBg = () => (studioMode === 'dark' ? '#16181b' : '#e6e8eb');
 $('#btn-studio').addEventListener('click', (e) => {
   studioMode = studioMode === 'dark' ? 'light' : 'dark';
   document.body.classList.toggle('studio-dark', studioMode === 'dark');
@@ -1325,7 +1327,7 @@ function renderSummary() {
 $('#btn-shot').addEventListener('click', () => {
   const transparent = $('#shot-transparent').checked;
   const url = stage.screenshot({ background: transparent ? null : studioBg(), hide: transparent ? [decals.frameMesh, stage.shadow] : [decals.frameMesh] });
-  download(url, 'helmet-render.png');
+  download(url, 'f1shstickers-render.png');
 });
 
 // Quote request: no backend, so compose an email and hand over the files.
@@ -1352,7 +1354,7 @@ $('#quote-form').addEventListener('submit', async (e) => {
   saveDesign();
   await downloadSheet();
   if (PRICING.orderEmail) {
-    location.href = `mailto:${PRICING.orderEmail}?subject=${encodeURIComponent('Helmet sticker quote request')}&body=${encodeURIComponent(body)}`;
+    location.href = `mailto:${PRICING.orderEmail}?subject=${encodeURIComponent('F1SHSTICKERS quote request')}&body=${encodeURIComponent(body)}`;
     toast('Email opened — attach the downloaded files');
   } else {
     toast('Files downloaded. Set orderEmail in src/pricing.js to email requests.');
@@ -1363,7 +1365,7 @@ async function downloadSheet() {
   const preview = stage.screenshot({ width: 900, height: 900, hide: [decals.frameMesh, stage.shadow] });
   const blob = await renderProductionSheet({ layers: state.layers, base: state.base, assets, dpi: +$('#sheet-dpi').value, preview });
   const url = URL.createObjectURL(blob);
-  download(url, 'helmet-print-sheet.png');
+  download(url, 'f1shstickers-print-sheet.png');
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 

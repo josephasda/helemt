@@ -3,28 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Helmet Studio — Configurator</title>
-    <meta name="description" content="Configure your race helmet livery in 3D." />
+    <title>F1SHSTICKERS — Helmet Configurator</title>
+    <meta name="description" content="F1SHSTICKERS: design your own race helmet sticker kit in 3D." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Bebas+Neue&family=Bungee&family=Orbitron:wght@400;800&family=Permanent+Marker&family=Racing+Sans+One&family=Russo+One&family=Teko:wght@500;700&family=Titillium+Web:ital,wght@0,400;0,600;0,700;1,700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300;6..12,400;6..12,600;6..12,700&family=Bebas+Neue&family=Bungee&family=Orbitron:wght@400;800&family=Permanent+Marker&family=Racing+Sans+One&family=Russo+One&family=Teko:wght@500;700&family=Titillium+Web:ital,wght@0,400;0,600;0,700;1,700&display=swap"
       rel="stylesheet"
     />
+    <link rel="preload" href="/fonts/BitcountSingle.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Helmet Studio">
-        <svg class="brand-mark" viewBox="0 0 32 32"><path d="M4 19c0-7.2 5.4-13 12.5-13C23 6 28 10.6 28 16.4V20l-7 .8-2.6 4.2H9.5C6.4 25 4 22.4 4 19Z"/><path d="M13 13h13"/></svg>
-        <span>HELMET<b>STUDIO</b></span>
+      <a class="brand" href="#" aria-label="F1SHSTICKERS">
+        <svg class="brand-mark" viewBox="0 0 32 32"><path d="M9 16c3-5 7.5-8 12.5-8 3.8 0 6.6 3 8.5 8-1.9 5-4.7 8-8.5 8-5 0-9.5-3-12.5-8Z"/><path d="M9 16 2.5 10.5v11Z"/><circle cx="24.5" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M17 12.5c1.2 2.2 1.2 4.8 0 7"/></svg>
+        <span>F1SH<b>STICKERS</b></span>
       </a>
       <nav class="steps" id="steps" aria-label="Configuration steps">
-        <button data-step="model"><i>1</i>Helmet</button>
-        <button data-step="paint"><i>2</i>Paint</button>
-        <button data-step="visor"><i>3</i>Visor</button>
-        <button data-step="graphics"><i>4</i>Graphics</button>
-        <button data-step="summary"><i>5</i>Summary</button>
+        <button data-step="model">Helmet</button>
+        <button data-step="paint">Paint</button>
+        <button data-step="visor">Visor</button>
+        <button data-step="graphics">Graphics</button>
+        <button data-step="summary">Summary</button>
       </nav>
       <div class="top-actions">
         <button class="ic" id="btn-undo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
@@ -226,18 +227,22 @@
           </section>
         </div>
 
-        <footer class="config-foot">
-          <div class="price">
-            <span>Sticker kit</span>
-            <strong id="price-total">—</strong>
-            <small id="price-note">Estimated price</small>
-          </div>
-          <div class="nav-btns">
-            <button class="btn ghost" id="btn-prev">Back</button>
-            <button class="btn primary" id="btn-next">Next</button>
-          </div>
-        </footer>
       </aside>
+
+      <footer class="config-foot">
+        <div class="foot-model">
+          <strong id="foot-model">Race Pro</strong>
+          <span id="foot-spec"></span>
+        </div>
+        <div class="price">
+          <span>Sticker kit · estimated</span>
+          <strong id="price-total">—</strong>
+        </div>
+        <div class="nav-btns">
+          <button class="btn ghost" id="btn-prev">Back</button>
+          <button class="btn primary" id="btn-next">Continue</button>
+        </div>
+      </footer>
     </main>
 
     <dialog class="modal library" id="library">

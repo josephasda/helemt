@@ -1,4 +1,4 @@
-# Helmet Studio — 3D helmet livery configurator
+# F1SHSTICKERS — 3D helmet livery configurator
 
 A browser-based 3D configurator for motorbike helmet sticker kits. The flow and styling follow premium car configurators: a bright photo-studio stage, five numbered steps and a running price. Inside that flow, the Graphics step is a layer-based vinyl editor like those in Forza and Gran Turismo 7.
 

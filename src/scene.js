@@ -6,13 +6,13 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 export const VIEWS = {
-  front: [0, 0.35, 5.8],
-  left: [5.8, 0.4, 0],
-  right: [-5.8, 0.4, 0],
-  back: [0, 0.6, -5.8],
-  top: [0, 5.8, 0.4],
-  three: [-4.1, 1.5, 3.9],
-  rear: [3.6, 1.9, -4.2],
+  front: [0, 0.35, 6.5],
+  left: [6.5, 0.4, 0],
+  right: [-6.5, 0.4, 0],
+  back: [0, 0.6, -6.5],
+  top: [0, 6.5, 0.4],
+  three: [-4.6, 1.7, 4.4],
+  rear: [4.0, 2.1, -4.7],
 };
 
 // A photo studio for reflections: dark room, big overhead softbox, tall strip
@@ -100,7 +100,7 @@ export function createStage(canvas) {
   camera.position.set(...VIEWS.three);
 
   const controls = new OrbitControls(camera, canvas);
-  controls.target.set(0, -0.05, 0);
+  controls.target.set(0, -0.15, 0);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.minDistance = 3;

@@ -277,6 +277,7 @@ export const PRESETS = new Map(PRESET_CATEGORIES.flatMap((c) => c.items.map((i) 
 
 // Quick-start text styles offered in the library's Text tab.
 export const TEXT_PRESETS = [
+  { name: 'Pixel Number', text: { value: '99', font: 'Bitcount Single', italic: false, weight: 700, fill: '#ffffff', stroke: '#111111', strokeWidth: 0, spacing: 4 } },
   { name: 'Race Number', text: { value: '46', font: 'Russo One', italic: true, weight: 400, fill: '#ffffff', stroke: '#111111', strokeWidth: 6, spacing: 0 } },
   { name: 'Rider Name', text: { value: 'YOUR NAME', font: 'Bebas Neue', italic: false, weight: 400, fill: '#ffffff', stroke: '#111111', strokeWidth: 0, spacing: 6 } },
   { name: 'Signature', text: { value: 'Signature', font: 'Permanent Marker', italic: false, weight: 400, fill: '#ffffff', stroke: '#111111', strokeWidth: 0, spacing: 0 } },
@@ -285,4 +286,4 @@ export const TEXT_PRESETS = [
   { name: 'Chunky', text: { value: 'MOTO', font: 'Bungee', italic: false, weight: 400, fill: '#ffffff', stroke: '#111111', strokeWidth: 0, spacing: 0 } },
 ];
 
-export const FONTS = ['Russo One', 'Bebas Neue', 'Permanent Marker', 'Orbitron', 'Racing Sans One', 'Bungee', 'Teko', 'Titillium Web', 'Arial', 'Impact'];
+export const FONTS = ['Bitcount Single', 'Russo One', 'Bebas Neue', 'Permanent Marker', 'Orbitron', 'Racing Sans One', 'Bungee', 'Teko', 'Titillium Web', 'Arial', 'Impact'];
